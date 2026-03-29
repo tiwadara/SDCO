@@ -13,36 +13,47 @@ class IntentParser(private val geminiClient: GeminiClient) {
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
+        coerceInputValues = true
     }
 
     /**
      * Send [userInput] to the LLM, parse the JSON response, and return
      * a list of [ComponentInstance] ready to add to the canvas.
      *
-     * Each returned instance gets a fresh unique ID (the LLM doesn't
-     * generate IDs).
+     * Retries up to [MAX_RETRIES] times if JSON parsing fails.
      */
     suspend fun parseIntent(userInput: String): Result<List<ComponentInstance>> {
         val prompt = PromptBuilder.buildPrompt(userInput)
+        var lastError: Throwable? = null
 
-        return geminiClient.generateContent(prompt)
-            .mapCatching { rawResponse ->
-                val cleaned = extractJson(rawResponse)
-                val parsed = json.decodeFromString<List<LlmComponentOutput>>(cleaned)
+        repeat(MAX_RETRIES + 1) { attempt ->
+            val currentPrompt = if (attempt == 0) prompt
+            else "$prompt\n\nIMPORTANT: Previous response was invalid JSON. Return ONLY a valid JSON array of components. No markdown, no commentary."
 
-                parsed.map { output ->
-                    ComponentInstance(
-                        // Let the default ID generator create unique IDs
-                        name = output.name,
-                        properties = output.properties,
-                        xOffset = output.xOffset,
-                        yOffset = output.yOffset,
-                    )
+            val result = geminiClient.generateContent(currentPrompt)
+                .mapCatching { rawResponse ->
+                    val cleaned = extractJson(rawResponse)
+                    val parsed = json.decodeFromString<List<LlmComponentOutput>>(cleaned)
+
+                    parsed.map { output ->
+                        ComponentInstance(
+                            name = output.name,
+                            properties = output.properties,
+                            xOffset = output.xOffset,
+                            yOffset = output.yOffset,
+                        )
+                    }
                 }
-            }
+
+            if (result.isSuccess) return result
+            lastError = result.exceptionOrNull()
+        }
+
+        return Result.failure(lastError ?: IllegalStateException("Failed after ${MAX_RETRIES + 1} attempts"))
     }
 
     companion object {
+        private const val MAX_RETRIES = 1
         /**
          * Extract a JSON array from the LLM response, stripping markdown
          * code fences or surrounding whitespace.

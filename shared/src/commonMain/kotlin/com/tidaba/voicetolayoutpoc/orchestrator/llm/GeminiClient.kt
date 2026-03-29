@@ -37,12 +37,16 @@ class GeminiClient(
 
     /**
      * Send a prompt to Gemini and return the raw text response.
+     * Uses `responseMimeType: application/json` to force structured JSON output.
      */
     suspend fun generateContent(prompt: String): Result<String> = runCatching {
         val requestBody = GeminiRequest(
             contents = listOf(
                 Content(parts = listOf(Part(text = prompt)))
-            )
+            ),
+            generationConfig = GenerationConfig(
+                responseMimeType = "application/json",
+            ),
         )
 
         val url = "$BASE_URL/$model:generateContent?key=$apiKey"
@@ -168,6 +172,13 @@ class GeminiClient(
 @Serializable
 internal data class GeminiRequest(
     val contents: List<Content>,
+    val generationConfig: GenerationConfig? = null,
+)
+
+@Serializable
+internal data class GenerationConfig(
+    val responseMimeType: String? = null,
+    val temperature: Float? = null,
 )
 
 @Serializable

@@ -226,6 +226,7 @@ private fun ApiKeyScreen(
 @Composable
 private fun OrchestratorScreen(orchestrator: Orchestrator, onChangeApiKey: () -> Unit) {
     val manifest by orchestrator.layoutState.manifest.collectAsState()
+    val isLoading by orchestrator.isLoading.collectAsState()
     val scope = rememberCoroutineScope()
 
     var userInput by remember { mutableStateOf("") }
@@ -400,12 +401,36 @@ private fun OrchestratorScreen(orchestrator: Orchestrator, onChangeApiKey: () ->
         HorizontalDivider()
 
         // ── Canvas ─────────────────────────────────────────────
-        OrchestratorCanvas(
-            manifest = manifest,
-            onComponentMoved = { id, x, y ->
-                orchestrator.layoutState.moveComponent(id, x, y)
-            },
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            OrchestratorCanvas(
+                manifest = manifest,
+                onComponentMoved = { id, x, y ->
+                    orchestrator.layoutState.moveComponent(id, x, y)
+                },
+                onComponentDeleted = { id ->
+                    scope.launch {
+                        orchestrator.deleteComponent(id)
+                        statusMessage = "🗑 Component deleted"
+                    }
+                },
+            )
+
+            // Loading overlay while restoring persisted layout
+            if (isLoading) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize().background(
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Restoring layout…", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
     }
 }
 
