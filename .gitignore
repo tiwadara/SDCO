@@ -1,0 +1,35 @@
+## Kotlin / Gradle
+*.iml
+.kotlin
+.gradle
+**/build/
+!src/**/build/
+local.properties
+
+## IDE
+.idea
+.DS_Store
+*.swp
+*~
+
+## Android
+captures
+.externalNativeBuild
+.cxx
+
+## Xcode
+xcuserdata
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+**/xcshareddata/WorkspaceSettings.xcsettings
+
+## JS / Node
+node_modules/
+kotlin-js-store/
+
+## Secrets — never commit API keys
+*.env
+.env.*
